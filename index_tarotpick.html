@@ -1,0 +1,1006 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#130F1C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="타로">
+<meta name="description" content="질문을 적고 카드를 뽑으면 Gemini에 보낼 해석 프롬프트까지 만들어 주는 타로 뽑기">
+<title>Tarot Draw</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@400;600&display=swap">
+<style>
+/* Layout concept: a single quiet column (plum night, verdigris accent). One screen to ask, one to draw (deck pinned to the thumb zone), one to read.
+   Near-white ground, ink text, one indigo accent. The dark card backs are the only heavy objects on the page. */
+:root {
+  --bg: #130F1C;
+  --surface: #1B1626;
+  --sunken: #261F35;
+  --line: rgba(226, 219, 244, 0.13);
+  --line-strong: rgba(226, 219, 244, 0.3);
+  --ink: #ECE7F6;
+  --muted: #A59DBB;
+  --faint: #756E8C;
+  --accent: #7CC8B4;
+  --accent-wash: rgba(124, 200, 180, 0.1);
+  --accent-line: rgba(124, 200, 180, 0.5);
+  --btn: #7CC8B4;
+  --on-btn: #0E1C18;
+  --reverse: #F0907A;
+  --paper: #EFEAF6;
+  --paper-ink: #1A1430;
+  --paper-soft: rgba(26, 20, 48, 0.18);
+  --arcana: #2E2A6B;
+  --wands: #B4532A;
+  --cups: #2C6E8C;
+  --swords: #4A5878;
+  --pentacles: #8A6A1D;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 30px rgba(0, 0, 0, 0.45);
+  --serif-ko: 'Noto Serif KR', 'Nanum Myeongjo', Batang, serif;
+  --serif-en: 'Cormorant Garamond', 'Iowan Old Style', Georgia, serif;
+  --sans: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+  color-scheme: dark;
+}
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(60% 45% at 85% 0%, rgba(124, 200, 180, 0.08), transparent 70%),
+    radial-gradient(55% 45% at 5% 8%, rgba(122, 92, 210, 0.15), transparent 70%);
+}
+.app { position: relative; z-index: 1; }
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 400 1rem/1.65 var(--sans);
+  padding-block: 22px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  min-height: 100%;
+  word-break: keep-all; overflow-wrap: break-word;
+}
+.app { max-width: 520px; margin: 0 auto; }
+.app.wide { max-width: 900px; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.top { margin-bottom: 30px; }
+.brand { font: 600 1.15rem/1 var(--serif-ko); letter-spacing: 0.02em; margin: 0; }
+.brand small { font: 500 0.95rem/1 var(--serif-en); color: var(--muted); margin-left: 0.6rem; letter-spacing: 0.06em; }
+
+h1 { font: 600 clamp(1.7rem, 6vw, 2.1rem)/1.3 var(--serif-ko); letter-spacing: -0.015em; margin: 0 0 28px; text-wrap: balance; }
+h1:focus { outline: none; }
+#h-setup { text-align: center; }
+.label { font-size: 0.82rem; font-weight: 500; color: var(--muted); margin: 0 0 10px; }
+.sec { margin-bottom: 30px; }
+
+/* buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 52px; padding: 0 22px; border-radius: 12px;
+  border: 1px solid var(--line-strong); background: transparent; color: var(--ink);
+  font-weight: 500; text-decoration: none; line-height: 1.2;
+  transition: opacity .2s, background .2s;
+}
+.btn.primary { background: var(--btn); border-color: var(--btn); color: var(--on-btn); font-weight: 700; }
+.btn.block { width: 100%; min-height: 56px; }
+.btn:disabled, .btn[aria-disabled="true"] { opacity: 0.35; cursor: not-allowed; }
+.link {
+  background: none; border: 0; padding: 8px 4px; min-height: 44px;
+  color: var(--muted); font-size: 0.9rem;
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong);
+}
+.link:hover { color: var(--ink); }
+
+/* setup */
+.cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.cat {
+  min-height: 48px; padding: 0 10px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  font-size: 0.92rem; transition: border-color .2s, background .2s, color .2s;
+}
+.cat:hover { border-color: var(--line-strong); color: var(--ink); }
+.cat[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-wash); color: var(--ink); font-weight: 700; }
+
+.spread-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.spread-head .label { margin: 0; }
+.spread-sum { margin: 0 0 10px; font: 600 1.6rem/1.2 var(--serif-en); font-variant-numeric: lining-nums; }
+.spread-sum small { font: 400 0.95rem var(--sans); color: var(--muted); margin-left: 4px; }
+.poslist { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.poslist li {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 34px; padding: 0 14px 0 8px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); font-size: 0.88rem;
+}
+.poslist i {
+  font: 600 0.78rem/1 var(--serif-en); font-style: normal; font-variant-numeric: lining-nums;
+  width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--sunken); color: var(--muted);
+}
+.poslist li.more { padding-left: 14px; color: var(--muted); }
+
+.editor { margin-top: 16px; padding: 18px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); display: grid; gap: 16px; }
+.stepper { display: flex; align-items: center; gap: 10px; }
+.stepper .circle {
+  width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-strong);
+  background: transparent; font-size: 1.3rem; line-height: 1; display: grid; place-items: center;
+}
+.stepper input {
+  width: 4.2rem; text-align: center; background: transparent; border: 0; border-bottom: 1px solid var(--line-strong);
+  font: 600 1.7rem/1.2 var(--serif-en); font-variant-numeric: lining-nums; border-radius: 0; padding: 0 0 2px;
+  -moz-appearance: textfield; appearance: textfield;
+}
+.stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.stepper span { color: var(--muted); }
+.pos-rows { display: grid; gap: 8px; }
+.pos-row { display: flex; align-items: center; gap: 10px; }
+.pos-row > span { width: 20px; text-align: center; font: 600 0.9rem var(--serif-en); color: var(--muted); }
+.input, textarea {
+  width: 100%; min-height: 46px; padding: 10px 14px; border-radius: 10px;
+  background: var(--bg); border: 1px solid var(--line-strong);
+}
+.editor-actions { display: flex; justify-content: space-between; }
+.note { margin: 0; color: var(--muted); font-size: 0.85rem; }
+
+textarea { min-height: 140px; padding: 14px 16px; line-height: 1.7; resize: vertical; background: var(--surface); border-color: var(--line); border-radius: 12px; }
+textarea::placeholder, .input::placeholder { color: var(--faint); }
+textarea:focus, .input:focus { border-color: var(--accent); outline: 2px solid var(--accent-wash); outline-offset: 0; }
+.helper { margin: 8px 0 0; color: var(--muted); font-size: 0.86rem; }
+.help { margin: 10px 0 0; min-height: 1.4em; text-align: center; color: var(--faint); font-size: 0.84rem; }
+
+/* card back */
+.cardback {
+  position: relative; border-radius: 8px;
+  background: linear-gradient(165deg, #30254B 0%, #1A1430 100%);
+  box-shadow: inset 0 0 0 1px rgba(124, 200, 180, 0.5), 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+.cardback::before { content: ""; position: absolute; inset: 6%; border: 1px solid rgba(124, 200, 180, 0.28); border-radius: 5px; }
+.cardback::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 34%; aspect-ratio: 1;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border: 1px solid rgba(124, 200, 180, 0.7);
+  background: radial-gradient(circle, rgba(124, 200, 180, 0.75) 0 9%, transparent 10%);
+}
+
+/* pick */
+.pick { display: flex; flex-direction: column; min-height: calc(100vh - 130px); min-height: calc(100dvh - 130px); }
+.pick-top { display: flex; align-items: center; justify-content: space-between; margin: -8px 0 6px; }
+.tally { margin: 0; font: 600 1.4rem/1 var(--serif-en); font-variant-numeric: lining-nums; }
+.tally span { font: 400 0.9rem var(--sans); color: var(--muted); margin-left: 4px; }
+.q-echo { margin: 0 0 22px; color: var(--muted); font-size: 0.92rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.slots { display: flex; flex-wrap: wrap; gap: 14px 12px; margin-bottom: 18px; }
+.slot { width: 56px; text-align: center; font-size: 0.74rem; color: var(--muted); line-height: 1.35; }
+.slot .mini {
+  aspect-ratio: 2 / 3; border-radius: 7px; margin-bottom: 7px;
+  border: 1.5px dashed var(--line-strong); display: grid; place-items: center;
+  font: 500 0.95rem var(--serif-en); color: var(--faint);
+}
+.slot.filled .mini { border: 0; font-size: 0; animation: pop .4s cubic-bezier(.2, .9, .3, 1.25); }
+.slot .lbl { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: keep-all; }
+.slots.many .slot { width: 34px; }
+.slots.many .slot .lbl { display: none; }
+.slots.many .slot .mini { margin-bottom: 0; border-radius: 5px; font-size: 0.72rem; }
+.slots.many .slot.filled .mini { font-size: 0; }
+@keyframes pop { from { transform: scale(0.55); opacity: 0.4; } to { transform: none; opacity: 1; } }
+
+.how { margin: 0; min-height: 3.4em; color: var(--muted); font-size: 0.9rem; text-align: center; }
+.how.state { color: var(--accent); font-weight: 500; }
+.deckzone { position: relative; z-index: 2; height: 250px; margin-top: auto; }
+.bzone {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 250px;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.bcard {
+  position: absolute; top: 0; left: 0; width: 46px; height: 69px; border-radius: 6px;
+  transform-origin: 50% 100%; will-change: transform;
+  transition: transform .28s cubic-bezier(.2, .8, .2, 1);
+}
+.bzone.live .bcard { transition: none; }
+.bcard.active { box-shadow: inset 0 0 0 1.5px var(--accent), 0 8px 22px rgba(124, 200, 180, 0.35); }
+.bcard.ready { box-shadow: inset 0 0 0 2px var(--on-btn), 0 0 0 3px var(--accent), 0 10px 26px rgba(124, 200, 180, 0.5); }
+.pick-actions { display: flex; align-items: center; justify-content: center; gap: 18px; min-height: 52px; margin-top: 4px; }
+
+/* result */
+.quote { margin: 0 0 14px; padding-left: 16px; border-left: 2px solid var(--accent); font: 400 1.15rem/1.65 var(--serif-ko); max-width: 40rem; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+.pill { font-size: 0.8rem; color: var(--muted); border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 2px 12px; }
+.grid { display: grid; gap: 36px 22px; grid-template-columns: repeat(auto-fill, minmax(150px, 200px)); justify-content: start; margin-bottom: 36px; }
+@media (max-width: 480px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.rc { display: flex; flex-direction: column; gap: 6px; min-width: 0; animation: settle .65s cubic-bezier(.2, .8, .2, 1) backwards; animation-delay: var(--d, 0s); }
+@keyframes settle { from { transform: translateY(16px) rotate(-1.5deg); } to { transform: none; } }
+.rc .pos { margin: 0 0 4px; font-size: 0.82rem; font-weight: 700; color: var(--accent); }
+.face { width: 100%; max-width: 200px; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--line); }
+.face.rev { transform: rotate(180deg); }
+.face svg { display: block; width: 100%; height: auto; }
+.rc h3 { margin: 10px 0 0; font: 600 1.3rem/1.25 var(--serif-en); letter-spacing: 0.01em; word-break: normal; }
+.rc .ko { margin: 0; color: var(--muted); font-size: 0.88rem; }
+.tag { align-self: flex-start; font-size: 0.78rem; border: 1px solid var(--line-strong); color: var(--muted); border-radius: 999px; padding: 1px 10px; margin-top: 4px; }
+.tag.rev { border-color: var(--reverse); color: var(--reverse); }
+.rc .kw { margin: 6px 0 0; color: var(--muted); font-size: 0.85rem; line-height: 1.55; word-break: normal; }
+
+details.prompt { margin-bottom: 18px; max-width: 720px; }
+details.prompt summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; padding: 8px 0; }
+details.prompt pre {
+  margin: 8px 0 0; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  white-space: pre-wrap; overflow-wrap: anywhere; font: 400 0.85rem/1.75 var(--sans); color: var(--muted); max-height: 320px; overflow: auto;
+}
+.manual { margin-bottom: 20px; max-width: 720px; display: grid; gap: 8px; }
+.manual textarea { min-height: 150px; font-size: 0.85rem; }
+.actionbar {
+  position: sticky; bottom: 0; z-index: 20; margin-top: 18px;
+  display: grid; grid-template-columns: 1fr 1.5fr; gap: 10px;
+  padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px));
+  background: var(--bg); border-top: 1px solid var(--line);
+}
+.actionbar .btn { min-height: 52px; padding: 0 12px; font-size: 0.95rem; }
+.again { display: block; margin: 0 auto; }
+
+.kbbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+  display: flex; justify-content: flex-end;
+  padding: 8px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px));
+  background: var(--surface); border-top: 1px solid var(--line);
+}
+.kbbar[hidden] { display: none; }
+#go { scroll-margin-bottom: 28px; }
+.disclaimer { margin: 28px 0 0; text-align: center; color: var(--faint); font-size: 0.8rem; }
+
+.kbbar button { min-height: 44px; padding: 0 22px; border-radius: 10px; border: 0; background: var(--btn); color: var(--on-btn); font-weight: 700; }
+.toast {
+  position: fixed; left: 50%; z-index: 50; bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  transform: translate(-50%, 12px); opacity: 0; pointer-events: none;
+  background: var(--ink); color: var(--bg); padding: 11px 18px; border-radius: 10px; font-size: 0.9rem;
+  max-width: calc(100% - 32px); text-align: center; transition: opacity .25s, transform .25s;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* card face art (SVG) */
+.face .bg { fill: var(--paper); }
+.face .frame { fill: none; stroke: var(--paper-soft); stroke-width: 1.2; }
+.face .ln { fill: none; stroke: var(--c); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+.face .ln.thin { stroke-width: 1.8; }
+.face .ln.tint { fill: var(--c); fill-opacity: 0.16; }
+.face .fl { fill: var(--c); }
+.face .soft { fill: none; stroke: var(--paper-soft); stroke-width: 2.4; stroke-linecap: round; }
+.face .num { font-family: var(--serif-en); font-weight: 600; font-size: 30px; fill: var(--c); font-variant-numeric: lining-nums; }
+.face .nm { font-family: var(--serif-en); font-weight: 600; fill: var(--paper-ink); letter-spacing: 0.02em; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+[hidden] { display: none !important; }
+html { background: #130F1C; }
+body { margin: 0; }
+</style>
+
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top"><p class="brand">타로<small>Tarot Draw</small></p></header>
+
+  <!-- 1. 입력 -->
+  <section id="s-setup" class="screen" aria-labelledby="h-setup">
+    <h1 id="h-setup" tabindex="-1">무엇이 궁금하세요?</h1>
+
+    <div class="sec">
+      <p class="label" id="catLabel">상담 분야</p>
+      <div class="cats" id="cats" role="group" aria-labelledby="catLabel"></div>
+    </div>
+
+    <div class="sec">
+      <div class="spread-head">
+        <p class="label">스프레드</p>
+        <button type="button" class="link" id="spreadEdit" aria-expanded="false" aria-controls="editor">변경</button>
+      </div>
+      <p class="spread-sum" id="spreadSum"></p>
+      <ol class="poslist" id="posList"></ol>
+      <div class="editor" id="editor" hidden>
+        <div class="stepper">
+          <button type="button" class="circle" id="cntDec" aria-label="한 장 줄이기">−</button>
+          <input id="cntInput" type="number" inputmode="numeric" min="1" max="78" step="1" aria-label="카드 장수">
+          <span>장</span>
+          <button type="button" class="circle" id="cntInc" aria-label="한 장 늘리기">+</button>
+        </div>
+        <div class="pos-rows" id="posInputs"></div>
+        <p class="note" id="posNote" hidden>13번째부터는 "13번째 카드"처럼 순서대로 이름이 붙어요.</p>
+        <div class="editor-actions">
+          <button type="button" class="link" id="presetReset">분야 기본값으로</button>
+          <button type="button" class="link" id="editorClose">닫기</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <label class="label" for="question" style="display:block">질문</label>
+      <textarea id="question" maxlength="1500" placeholder=""></textarea>
+      <p class="helper">현재 상황을 자세하게 적으면 해석이 더욱 정확해져요.</p>
+    </div>
+
+    <button type="button" class="btn primary block" id="go" disabled>카드 뽑기</button>
+    <p class="help" id="goHelp" aria-live="polite">질문을 입력하세요.</p>
+    <p class="disclaimer">타로는 재미와 참고용이에요. 중요한 결정은 스스로 신중하게 판단해 주세요.</p>
+  </section>
+
+  <!-- 2. 뽑기 -->
+  <section id="s-pick" class="screen pick" aria-labelledby="h-pick" hidden>
+    <div class="pick-top">
+      <button type="button" class="link" id="pickBack">← 수정</button>
+      <p class="tally" aria-live="polite"><b id="tallyNow" style="font-weight:600">0</b><span id="tallyOf">/ 3장</span></p>
+    </div>
+    <h1 id="h-pick" tabindex="-1" style="font-size:1.4rem;margin-bottom:8px">카드를 뽑아주세요</h1>
+    <p class="q-echo" id="qEcho"></p>
+    <div class="slots" id="slots"></div>
+    <p class="how" id="how"></p>
+    <div class="deckzone"><div class="bzone" id="bzone"></div></div>
+    <div class="pick-actions" id="pickActions">
+      <button type="button" class="link" id="shuffle">카드 섞기</button>
+      <button type="button" class="link" id="randomPick">한 장 바로 뽑기</button>
+    </div>
+    <button type="button" class="btn primary block" id="toResult" hidden>결과 보기</button>
+  </section>
+
+  <!-- 3. 결과 -->
+  <section id="s-result" class="screen" aria-labelledby="h-result" hidden>
+    <h1 id="h-result" tabindex="-1">리딩 결과</h1>
+    <blockquote class="quote" id="rQuestion"></blockquote>
+    <div class="meta" id="rMeta"></div>
+    <div class="manual" id="manual" hidden>
+      <label for="manualText" class="note">자동 복사가 막혀 있어요. 아래 내용을 선택해서 직접 복사하세요.</label>
+      <textarea id="manualText" readonly></textarea>
+    </div>
+    <div class="grid" id="grid"></div>
+    <details class="prompt">
+      <summary>Gemini에 보낼 프롬프트 보기</summary>
+      <pre id="promptPreview"></pre>
+    </details>
+    <button type="button" class="link again" id="again">새로운 타로 보기</button>
+    <p class="disclaimer">타로는 재미와 참고용이에요. 중요한 결정은 스스로 신중하게 판단해 주세요.</p>
+    <div class="actionbar">
+      <button type="button" class="btn" id="copyAll">전체 결과 복사</button>
+      <a class="btn primary" id="gemini" href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer">Gemini로 해석 받기</a>
+    </div>
+  </section>
+</div>
+<div class="kbbar" id="kbbar" hidden><button type="button" id="kbDone">완료</button></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  
+  var ROMAN = ['0','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX','XXI'];
+  var MAJOR = [
+    ['The Fool','바보','New beginnings, innocence, spontaneity'],
+    ['The Magician','마법사','Manifestation, resourcefulness, power'],
+    ['The High Priestess','여사제','Intuition, sacred knowledge, divine feminine'],
+    ['The Empress','여황제','Femininity, beauty, nature, abundance'],
+    ['The Emperor','황제','Authority, structure, control, fatherhood'],
+    ['The Hierophant','교황','Spiritual wisdom, religious beliefs, conformity'],
+    ['The Lovers','연인','Love, harmony, relationships, values alignment'],
+    ['The Chariot','전차','Control, willpower, success, determination'],
+    ['Strength','힘','Strength, courage, patience, control'],
+    ['The Hermit','은둔자','Soul searching, introspection, inner guidance'],
+    ['Wheel of Fortune','운명의 수레바퀴','Good luck, karma, life cycles, destiny'],
+    ['Justice','정의','Justice, fairness, truth, cause and effect'],
+    ['The Hanged Man','매달린 사람','Suspension, restriction, letting go, sacrifice'],
+    ['Death','죽음','Endings, beginnings, change, transformation'],
+    ['Temperance','절제','Balance, moderation, patience, purpose'],
+    ['The Devil','악마','Shadow self, attachment, addiction, restriction'],
+    ['The Tower','탑','Sudden change, upheaval, chaos, revelation'],
+    ['The Star','별','Hope, faith, purpose, renewal, spirituality'],
+    ['The Moon','달','Illusion, fear, anxiety, subconscious, intuition'],
+    ['The Sun','태양','Positivity, fun, warmth, success, vitality'],
+    ['Judgement','심판','Judgement, rebirth, inner calling, absolution'],
+    ['The World','세계','Completion, accomplishment, travel, fulfillment']
+  ];
+  var SUITS = [
+    { key: 'wands', en: 'Wands', ko: '지팡이', desc: 'Fire energy, creativity, passion, growth' },
+    { key: 'cups', en: 'Cups', ko: '컵', desc: 'Water energy, emotions, relationships, spirituality' },
+    { key: 'swords', en: 'Swords', ko: '검', desc: 'Air energy, thoughts, communication, conflict' },
+    { key: 'pentacles', en: 'Pentacles', ko: '펜타클', desc: 'Earth energy, material matters, resources, career' }
+  ];
+  var COURT = ['Page', 'Knight', 'Queen', 'King'];
+  var COURT_KO = ['시종', '기사', '여왕', '왕'];
+  var COURT_SYM = ['P', 'Kn', 'Q', 'K'];
+  var DECK = [];
+  MAJOR.forEach(function (m, i) {
+    DECK.push({ id: i, name: m[0], ko: m[1], type: 'major', suit: null, suitKo: null, number: i, rank: ROMAN[i], desc: m[2] });
+  });
+  SUITS.forEach(function (s, si) {
+    for (var i = 0; i < 14; i++) {
+      DECK.push({
+        id: 22 + si * 14 + i,
+        name: i === 0 ? 'Ace of ' + s.en : i < 10 ? (i + 1) + ' of ' + s.en : COURT[i - 10] + ' of ' + s.en,
+        ko: s.ko + ' ' + (i === 0 ? '에이스' : i < 10 ? String(i + 1) : COURT_KO[i - 10]),
+        type: 'minor', suit: s.key, suitKo: s.ko, number: i + 1,
+        rank: i === 0 ? 'A' : i < 10 ? String(i + 1) : COURT_SYM[i - 10],
+        desc: s.desc
+      });
+    }
+  });
+
+  var KW = [["새로운 시작, 순수함, 모험, 자유", "무모함, 준비 부족, 망설임, 경솔한 선택"], ["의지, 실행력, 재능 발휘, 집중", "재능 낭비, 속임수, 의욕 저하, 계획만 앞섬"], ["직관, 내면의 목소리, 비밀, 고요한 통찰", "직관 무시, 숨겨진 의도, 소통 단절, 불확실함"], ["풍요, 돌봄, 창조성, 안정된 애정", "의존, 과보호, 창조력 정체, 자기 돌봄 부족"], ["질서, 책임, 리더십, 안정된 구조", "독단, 경직, 통제욕, 권위와의 갈등"], ["전통, 가르침, 믿을 만한 조언, 규범", "틀에 박힘, 관습 거부, 맹목적 순응, 새 방식 모색"], ["사랑, 조화, 가치관 일치, 중요한 선택", "불화, 엇갈림, 가치 충돌, 선택 회피"], ["추진력, 승리, 의지로 돌파, 방향 확정", "방향 상실, 통제 불능, 공격성, 지연"], ["용기, 인내, 부드러운 통제, 자신감", "자신감 저하, 불안, 감정 폭발, 참을성 부족"], ["내면 성찰, 고독, 지혜 탐색, 거리 두기", "고립, 외로움, 성찰 회피, 사회와의 단절"], ["전환점, 행운, 흐름의 변화, 인연", "불운, 반복되는 패턴, 변화에 저항, 타이밍 어긋남"], ["공정, 진실, 인과응보, 책임 있는 결정", "불공정, 편견, 책임 회피, 판단 지연"], ["멈춤, 관점 전환, 기다림, 내려놓음", "정체, 헛된 희생, 결정 미룸, 집착"], ["끝과 새 출발, 변화, 정리, 전환", "변화 거부, 미련, 정체, 끝맺지 못함"], ["균형, 조화, 인내, 알맞은 조율", "불균형, 과함, 조급함, 조율 실패"], ["집착, 유혹, 속박, 반복되는 습관", "속박에서 벗어남, 자각, 끊어냄, 의존을 인식"], ["급변, 붕괴, 충격, 진실의 드러남", "위기 모면, 변화에 대한 두려움, 늦춰진 붕괴, 후유증"], ["희망, 치유, 회복, 영감", "희망 상실, 낙담, 불신, 방향 모호"], ["불안, 착각, 불확실함, 숨은 감정", "혼란 해소, 진실이 드러남, 불안 완화, 두려움 직시"], ["성공, 기쁨, 활력, 명확함", "일시적 낙담, 지나친 낙관, 기쁨의 지연, 에너지 저하"], ["각성, 재평가, 내면의 부름, 새 국면", "자기 의심, 후회, 결단 미룸, 과거에 매임"], ["완성, 성취, 통합, 한 단계의 마무리", "미완성, 마무리 지연, 아쉬움, 목표 부재"], ["새로운 열정, 시작의 불꽃, 영감, 가능성", "의욕 저하, 시작 지연, 불발, 동기 부족"], ["계획, 선택의 기로, 넓은 시야, 결단", "우유부단, 두려움, 계획 부재, 안주"], ["확장, 기대, 결과를 기다림, 먼 곳", "지연, 기대와의 어긋남, 협력 난항, 좌절"], ["축하, 안정, 화합, 집과 공동체", "불화, 불안정한 기반, 축하의 지연, 소속감 부족"], ["경쟁, 의견 충돌, 소란, 다툼", "갈등 회피, 갈등 해소, 내부 긴장, 소모적 싸움"], ["승리, 인정, 자신감, 칭찬", "인정받지 못함, 자만, 실패, 평판 하락"], ["방어, 입장 고수, 도전에 맞섬, 끈기", "지침, 포기, 압도됨, 입장이 흔들림"], ["빠른 진행, 소식, 속도, 추진", "지연, 혼선, 서두름, 방향 어긋남"], ["끈기, 경계, 마지막 고비, 회복력", "소진, 방어적 태도, 포기 직전, 피로"], ["과한 짐, 책임, 소진, 끝이 보이는 노력", "짐 내려놓음, 위임, 번아웃, 책임 회피"], ["호기심, 새 소식, 열정적인 신입, 탐색", "산만함, 미숙함, 흐지부지, 불편한 소식"], ["돌진, 모험, 열정, 빠른 행동", "성급함, 무모함, 분노, 변덕"], ["자신감, 매력, 활기, 따뜻한 리더십", "질투, 변덕, 자신감 저하, 요구가 많음"], ["비전, 리더십, 대담함, 영감을 주는 사람", "독단, 성급한 판단, 과욕, 폭군 같은 태도"], ["새로운 감정, 사랑의 시작, 마음의 열림, 직관", "감정 억누름, 공허함, 닫힌 마음, 지연된 감정"], ["서로의 마음, 조화, 파트너십, 연결", "불균형한 관계, 오해, 엇갈림, 이별의 조짐"], ["우정, 축하, 모임, 즐거움", "과함, 뒷말, 외톨이 느낌, 모임의 불협화음"], ["무기력, 숙고, 권태, 놓친 기회", "다시 눈을 뜸, 새 기회를 인식, 동기 회복, 고립 탈출"], ["상실, 후회, 슬픔, 남은 것 바라보기", "회복, 받아들임, 앞으로 나아감, 용서"], ["추억, 순수한 호의, 재회, 어린 시절", "과거에 매임, 현실 도피, 재회의 실망, 미련"], ["여러 선택지, 환상, 망설임, 몽상", "현실 직시, 선택 정리, 결단, 환상이 깨짐"], ["떠남, 미련 정리, 더 깊은 의미 찾기, 이별", "미련, 떠나지 못함, 도피, 방황"], ["소원 성취, 만족, 풍족한 마음, 즐거움", "불만족, 과욕, 공허한 만족, 허영"], ["행복한 가정, 감정적 충만, 화목, 이상적인 관계", "불화, 가정 문제, 어긋난 기대, 가치 충돌"], ["감성적 메시지, 순수한 마음, 창의적 영감, 고백", "감정 미숙, 비현실적 기대, 불편한 소식, 감정 회피"], ["로맨스, 제안, 감성적 접근, 이상 추구", "변덕, 비현실적, 감정 기복, 약속 불이행"], ["공감, 따뜻한 마음, 직관, 돌봄", "감정 과다, 의존, 감정에 휩쓸림, 경계 부족"], ["감정의 균형, 성숙한 배려, 포용, 침착함", "감정 억압, 조종, 변덕, 냉담함"], ["명확한 사고, 진실, 돌파구, 결단", "혼란, 흐린 판단, 가혹한 말, 불분명함"], ["결정 보류, 교착, 외면, 균형", "우유부단 해소, 정보 과다, 진실 직면, 긴장 지속"], ["마음의 상처, 이별, 슬픔, 아픈 진실", "회복, 상처 극복, 용서, 아픔 억누름"], ["휴식, 회복, 재충전, 잠시 멈춤", "번아웃, 쉬지 못함, 회복 지연, 복귀"], ["갈등 속 승리, 상처뿐인 승리, 자존심, 이기적 행동", "화해, 후회, 갈등을 끝냄, 뒤끝"], ["이동, 회복의 과정, 어려움에서 벗어남, 조용한 전환", "이동 지연, 미해결 문제, 떠나기 어려움, 정체"], ["눈치, 비밀 행동, 전략, 편법", "들통남, 양심, 정직해짐, 속임수 실패"], ["제약감, 갇힌 느낌, 자기 제한, 두려움", "해방, 시야 확보, 스스로 벗어남, 용기"], ["불안, 걱정, 불면, 자책", "불안 완화, 도움 요청, 과장된 걱정, 회복 시작"], ["끝, 바닥, 배신, 최악의 마무리", "회복, 최악은 지남, 되살아남, 놓지 못함"], ["호기심, 배우려는 태도, 새 정보, 날카로운 말", "말만 앞섬, 경솔한 말, 정보 부족, 험담"], ["직설, 빠른 판단, 추진, 논리적 돌파", "공격적, 성급한 결론, 무례함, 충동"], ["명료함, 독립적, 솔직한 판단, 경험에서 나온 통찰", "냉정함, 가혹함, 쓴소리, 비꼼"], ["논리, 권위, 공정한 판단, 분석력", "독선, 냉혹함, 권위 남용, 조종"], ["새 기회, 재정의 시작, 안정의 씨앗, 현실적 가능성", "놓친 기회, 부실한 계획, 불안정, 낭비"], ["균형 잡기, 여러 과제, 유연한 조율, 변화 대응", "균형 상실, 과부하, 재정 혼란, 우선순위 불분명"], ["협업, 실력 인정, 기술 향상, 팀워크", "불협화음, 실력 부족, 협업 문제, 대충 하기"], ["지키기, 안정 추구, 소유욕, 절약", "집착, 인색함, 놓지 못함, 소비 통제 상실"], ["결핍, 어려움, 고립감, 도움이 필요함", "회복, 도움을 받음, 어려움의 끝, 포기하지 않음"], ["나눔, 균형 잡힌 거래, 지원, 호의", "불공정한 거래, 빚, 조건부 도움, 이용당함"], ["인내, 중간 점검, 성과를 기다림, 투자", "조급함, 성과 부진, 방향 재검토, 노력 대비 부족한 결과"], ["숙련, 꾸준한 노력, 집중, 기술 쌓기", "완벽주의, 지루함, 반복, 일에 대한 의욕 저하"], ["독립, 풍요, 자기 성취, 여유", "과소비, 의존, 불안정한 풍요, 외로운 성공"], ["안정, 유산, 가문, 장기적인 성공", "재정 문제, 가족 갈등, 불안정, 흔들리는 안정"], ["배움, 현실적인 계획, 새 기회, 성실함", "게으름, 현실감 부족, 기회를 놓침, 끈기 부족"], ["꾸준함, 신중함, 책임감, 성실한 진행", "정체, 지루함, 고집, 느린 진행"], ["현실적인 돌봄, 풍족함, 실속, 안정", "일과 생활의 불균형, 질투, 물질 집착, 자기 소홀"], ["재정 안정, 신뢰, 실무 능력, 성공", "탐욕, 고집, 물질 만능, 재정 문제"]];
+  DECK.forEach(function (c, i) { c.kwUp = KW[i][0]; c.kwRev = KW[i][1]; });
+
+  var SPREAD_TYPES = {
+    3: [
+      { id: 'present-future-advice', name: '현재, 미래, 조언', positions: ['현재', '미래', '조언'] },
+      { id: 'situation-obstacle-advice', name: '상황, 장애물, 조언', positions: ['상황', '장애물', '조언'] },
+      { id: 'thought-emotion-action', name: '생각, 감정, 행동', positions: ['생각', '감정', '행동'] },
+      { id: 'custom', name: '직접 쓰기', positions: [], custom: true }
+    ],
+    5: [
+      { id: 'full-spread', name: '현재상황, 잠재된 영향력, 과거, 드러난 현재의 모습, 결과', positions: ['현재상황', '잠재된 영향력', '과거', '드러난 현재의 모습', '결과'] },
+      { id: 'custom', name: '직접 쓰기', positions: [], custom: true }
+    ]
+  };
+
+  var CATEGORY_OPTIONS = [
+    ['default', '선택 안 함 (자유 질문)'],
+    ['love', '연애'],
+    ['wealth', '금전/재물'],
+    ['relationship', '인간관계'],
+    ['choice', '선택과 결정 (A or B)'],
+    ['business', '사업'],
+    ['academic', '학업/진로'],
+    ['today', '오늘의 운세']
+  ];
+  var CATEGORY_NAMES = {
+    default: '자유 질문', love: '연애', wealth: '금전/재물', relationship: '인간관계',
+    choice: '선택과 결정 (A or B)', business: '사업', academic: '학업/진로', today: '오늘의 운세'
+  };
+  var CATEGORY_INSTRUCTIONS = {
+    default: '1. 각 카드의 핵심 상징과 해당 위치에서의 보편적인 의미를 상세히 분석할 것.\n2. 카드들 간의 상호작용(원소의 조화/충돌, 시선 방향, 흐름)을 종합하여 현재 상황의 본질을 파악할 것.\n3. 현재의 심리적 기저를 짚어주고, 질문자가 주체적으로 상황을 이끌어갈 수 있도록 현실적이고 균형 잡힌 조언을 제공할 것.',
+    love: '1. 각 카드가 상징하는 감정의 교류 상태와 무의식적인 방어기제를 분석할 것.\n2. 관계의 현재 흐름과 앞으로의 전개 방향을 서사적으로 연결할 것.\n3. 상대방의 속마음(관계 역학)과 질문자가 취해야 할 태도를 구체적으로 조언할 것.',
+    wealth: '1. 카드 상징을 자산의 흐름, 수익 창출 에너지, 금전적 블로킹(장애물) 요소로 변환하여 분석할 것.\n2. 단기적인 자금 융통과 장기적인 재물운의 방향성을 구분하여 설명할 것.\n3. 투자, 지출 통제 등 현실적이고 구체적인 리스크 관리 및 재무 조언을 제공할 것.',
+    relationship: '1. 얽혀 있는 이해관계, 심리적 거리감, 갈등의 근본적인 원인을 타로 상징으로 풀어낼 것.\n2. 질문자를 둘러싼 주변 사람들의 숨겨진 의도나 환경적 영향을 분석할 것.\n3. 원활한 소통을 위한 바운더리(선 긋기) 설정 및 관계 개선 포인트를 명확히 짚어줄 것.',
+    choice: '1. 선택지(A안, B안 등)에 배정된 카드들의 기회비용과 장단점을 날카롭게 비교 분석할 것.\n2. 각 선택이 질문자에게 가져올 단기적 결과와 장기적 파급력을 객관적으로 예측할 것.\n3. 카드의 원소(지수화풍) 에너지를 바탕으로, 결정을 내리기 가장 좋은 타이밍과 기준을 제시할 것.',
+    business: '1. 카드의 상징을 시장의 흐름, 조직 내외부의 변수, 상업적 잠재력으로 치환하여 해석할 것.\n2. 현재 사업 단계(창업, 확장, 위기 관리 등)에 맞는 전략적 강점과 보완해야 할 약점을 분석할 것.\n3. 감정적 접근을 배제하고, 리더로서 취해야 할 객관적인 경영 판단과 실무적 액션 플랜을 제시할 것.',
+    academic: '1. 카드의 상징을 학업 성취도, 시험 운(합격 여부), 진로 적성과 연결하여 깊이 있게 분석할 것.\n2. 현재의 학습 태도, 집중력 상태, 또는 목표 달성을 가로막는 무의식적인 장애 요인을 날카롭게 짚어낼 것.\n3. 단순한 합격/불합격 단정을 넘어, 실제 성적 향상이나 진로 정립을 위해 취해야 할 구체적인 스터디 전략 및 마음가짐 조언을 제공할 것.',
+    today: '1. 오늘 하루 질문자를 지배할 전반적인 에너지 테마와 핵심 키워드를 직관적으로 짚어줄 것.\n2. 긍정적인 에너지는 극대화하고, 부정적인 에너지는 무난하게 흘려보낼 수 있는 팁을 제공할 것.\n3. 행운을 끌어당길 수 있는 아주 작고 구체적인 일상 속 행동(예: 옷 색상, 마음가짐, 피해야 할 상황)을 추천할 것.'
+  };
+
+  function shuffleArr(a) {
+    var r = a.slice();
+    for (var i = r.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = r[i]; r[i] = r[j]; r[j] = t;
+    }
+    return r;
+  }
+  function fallbackPos(i, n) {
+    if (n === 1) return '현재 상황';
+    if (n === 3) return ['과거', '현재', '미래'][i];
+    if (n === 5) return ['현재 상황', '과거 영향', '미래 가능성', '행동 방향', '최종 결과'][i];
+    return (i + 1) + '번째';
+  }
+  function buildAllText(question, positions, picked) {
+    var out = 'Q. ' + question + '\n';
+    picked.forEach(function (p, i) {
+      var pos = positions[i] || (i + 1) + '번째';
+      out += pos + ': ' + p.card.name + ' ' + (p.reversed ? '역방향' : '정방향') + '\n';
+    });
+    return out.trim();
+  }
+  function buildPrompt(question, category, count, positions, picked) {
+    var q = question.trim() || '전반적인 흐름과 조언';
+    var pos = picked.map(function (_, i) { return positions[i] || fallbackPos(i, count); });
+    var spreadDesc = pos.length > 0 ? count + '장 스프레드 (' + pos.join(' / ') + ')' : count + '장 스프레드';
+    var list = picked.map(function (p, i) {
+      return (i + 1) + '. [' + pos[i] + '] ' + p.card.name + ' (' + (p.reversed ? '역방향' : '정방향') + ')';
+    }).join('\n');
+    return '[역할]\n너는 20년 경력의 심층 상징 분석 전문 타로 마스터이자 심리상담가야. 칼 융의 원형 심리학과 타로 상징 체계를 결합해 직관적이고 현실적인 통찰을 제공해 줘.\n\n' +
+      '[상담 맥락]\n- 상담 분야: ' + CATEGORY_NAMES[category] + '\n- 질문 내용: ' + q + '\n- 사용한 스프레드: ' + spreadDesc + '\n\n' +
+      '[뽑힌 카드 목록]\n' + list + '\n\n' +
+      '[분석 및 요청 사항]\n' + CATEGORY_INSTRUCTIONS[category];
+  }
+  
+  /* ---------- card face art ---------- */
+  function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+  function starPath(cx, cy, r, n) {
+    var step = Math.floor(n / 2);
+    while (step > 1 && gcd(n, step) !== 1) step--;
+    var pts = [];
+    for (var k = 0; k < n; k++) {
+      var a = (-90 + k * 360 / n) * Math.PI / 180;
+      pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    }
+    var seq = [], idx = 0;
+    do { seq.push(pts[idx]); idx = (idx + step) % n; } while (idx !== 0);
+    return 'M' + seq.map(function (p) { return p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' L') + ' Z';
+  }
+  function sigil(num) {
+    var s = '', cx = 100, cy = 150;
+    for (var k = 0; k < 21; k++) {
+      var a = (-90 + k * 360 / 21) * Math.PI / 180;
+      var on = k < num;
+      var r1 = 66, r2 = on ? 80 : 72;
+      s += '<line x1="' + (cx + r1 * Math.cos(a)).toFixed(1) + '" y1="' + (cy + r1 * Math.sin(a)).toFixed(1) +
+        '" x2="' + (cx + r2 * Math.cos(a)).toFixed(1) + '" y2="' + (cy + r2 * Math.sin(a)).toFixed(1) +
+        '" class="' + (on ? 'ln' : 'soft') + '" style="stroke-width:' + (on ? 3.2 : 2) + '"/>';
+    }
+    s += '<circle cx="100" cy="150" r="56" class="ln thin"/>';
+    s += '<path d="' + starPath(cx, cy, 46, 5 + (num % 7)) + '" class="ln tint thin"/>';
+    s += '<circle cx="100" cy="150" r="14" class="ln thin"/>';
+    s += '<circle cx="100" cy="150" r="3.5" class="fl"/>';
+    return s;
+  }
+  function suitArt(suit) {
+    if (suit === 'wands') {
+      return '<path d="M100 226 V112" class="ln" style="stroke-width:5"/>' +
+        '<path d="M100 112 C84 96 88 82 100 70 C112 82 116 96 100 112Z" class="ln tint"/>' +
+        '<path d="M100 170 C82 168 70 156 66 138 C86 140 98 152 100 170Z" class="ln tint"/>' +
+        '<path d="M100 192 C118 190 130 178 134 160 C114 162 102 174 100 192Z" class="ln tint"/>' +
+        '<path d="M88 226 H112" class="ln"/>';
+    }
+    if (suit === 'cups') {
+      return '<path d="M64 100 H136 C136 140 120 162 100 164 C80 162 64 140 64 100Z" class="ln tint"/>' +
+        '<path d="M58 100 H142" class="ln"/>' +
+        '<path d="M74 118 q6.5 -6 13 0 t13 0 t13 0 t13 0" class="ln thin"/>' +
+        '<path d="M100 164 V198" class="ln"/>' +
+        '<path d="M88 198 H112" class="ln"/>' +
+        '<path d="M78 214 H122" class="ln"/>';
+    }
+    if (suit === 'swords') {
+      return '<path d="M100 72 L110 96 V186 H90 V96 Z" class="ln tint"/>' +
+        '<path d="M100 102 V178" class="ln thin"/>' +
+        '<path d="M66 192 H134" class="ln" style="stroke-width:5"/>' +
+        '<path d="M100 192 V218" class="ln"/>' +
+        '<circle cx="100" cy="226" r="6" class="fl"/>';
+    }
+    return '<circle cx="100" cy="150" r="54" class="ln"/>' +
+      '<circle cx="100" cy="150" r="47" class="ln thin"/>' +
+      '<path d="' + starPath(100, 150, 40, 5) + '" class="ln tint"/>';
+  }
+  function faceSVG(c) {
+    var major = c.type === 'major';
+    var col = major ? 'var(--arcana)' : 'var(--' + c.suit + ')';
+    var art = major ? sigil(c.number) : suitArt(c.suit);
+    var fs = c.name.length > 17 ? 15 : c.name.length > 13 ? 17 : 19;
+    return '<svg viewBox="0 0 200 300" role="img" aria-label="' + esc(c.name) + '" style="--c:' + col + '">' +
+      '<rect class="bg" width="200" height="300"/>' +
+      '<rect class="frame" x="7" y="7" width="186" height="286" rx="11"/>' +
+      '<text class="num" x="100" y="52" text-anchor="middle">' + esc(c.rank) + '</text>' +
+      art +
+      '<text class="nm" x="100" y="268" text-anchor="middle" style="font-size:' + fs + 'px">' + esc(c.name) + '</text>' +
+      '</svg>';
+  }
+
+  
+
+  function $(s, r) { return (r || document).querySelector(s); }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function mod(a, n) { return ((a % n) + n) % n; }
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- presets ---------- */
+  var CAT_ORDER = ['love', 'relationship', 'wealth', 'business', 'academic', 'choice', 'today', 'default'];
+  var CAT_SHORT = { love: '연애', relationship: '인간관계', wealth: '금전/재물', business: '사업', academic: '학업/진로', choice: '선택과 결정', today: '오늘의 운세', default: '자유 질문' };
+  var PRESETS = {
+    love: ['나의 마음', '상대의 마음', '장애물', '조언', '결과'],
+    relationship: ['나의 마음', '상대의 속마음', '장애물', '조언', '결과'],
+    wealth: ['장애물', '조언', '결과'],
+    business: ['장애물', '조언', '결과'],
+    academic: ['장애물', '조언', '결과'],
+    choice: ['A의 결과', 'B의 결과', '조언'],
+    today: ['오늘의 흐름', '조언'],
+    default: ['장애물', '조언', '결과']
+  };
+  var PLACEHOLDERS = {
+    default: '예: 이직을 고민 중이에요. 지금 회사는 안정적이지만 성장이 멈춘 느낌이에요.',
+    love: '예: 3개월 만난 사람이 요즘 연락이 뜸해졌어요. 이 관계는 어떻게 흘러갈까요?',
+    relationship: '예: 팀 동료와 의견 차이로 서먹해졌어요. 어떻게 풀어가면 좋을까요?',
+    wealth: '예: 월급 외 수입을 만들려고 부업을 알아보고 있어요. 지금 시작해도 될까요?',
+    business: '예: 작은 가게를 운영 중인데 매출이 석 달째 줄고 있어요. 어떻게 해야 할까요?',
+    academic: '예: 자격시험을 두 달 앞두고 집중이 잘 안 돼요. 합격하려면 무엇이 필요할까요?',
+    choice: '예: A회사는 연봉이 높고 B회사는 하고 싶은 일이에요. 어느 쪽이 나을까요?',
+    today: '예: 오늘 중요한 면접이 있어요. 하루를 어떻게 보내면 좋을까요?'
+  };
+
+  var S = {
+    screen: 'setup', category: 'default', question: '',
+    count: 3, positions: PRESETS.default.slice(),
+    picked: [], rem: []
+  };
+
+  /* ---------- toast + copy ---------- */
+  var toastTimer;
+  function toast(msg) {
+    var t = $('#toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2600);
+  }
+  function copyText(text) {
+    var first;
+    try { if (navigator.clipboard && navigator.clipboard.writeText) first = navigator.clipboard.writeText(text); } catch (e) { first = null; }
+    var fallback = function () {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+        document.body.appendChild(ta);
+        ta.select(); ta.setSelectionRange(0, text.length);
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch (e) { return false; }
+    };
+    if (!first) return Promise.resolve(fallback());
+    return first.then(function () { return true; }, function () { return fallback(); });
+  }
+  function showManual(text) {
+    var box = $('#manual');
+    $('#manualText').value = text;
+    box.hidden = false;
+    var ta = $('#manualText');
+    ta.focus({ preventScroll: true });
+    ta.select();
+    if (box.scrollIntoView) box.scrollIntoView({ block: 'center' });
+  }
+
+  /* ---------- navigation ---------- */
+  function show(name) {
+    S.screen = name;
+    ['setup', 'pick', 'result'].forEach(function (n) { $('#s-' + n).hidden = n !== name; });
+    $('#app').classList.toggle('wide', name === 'result');
+    window.scrollTo(0, 0);
+    var h = $('#s-' + name + ' h1');
+    if (h) h.focus({ preventScroll: true });
+  }
+
+  /* ---------- screen 1: setup ---------- */
+  function renderCats() {
+    $('#cats').innerHTML = CAT_ORDER.map(function (k) {
+      return '<button type="button" class="cat" data-k="' + k + '" aria-pressed="' + (S.category === k) + '">' + esc(CAT_SHORT[k]) + '</button>';
+    }).join('');
+    $('#question').placeholder = PLACEHOLDERS[S.category];
+  }
+  function renderSpread() {
+    $('#spreadSum').innerHTML = S.count + '<small>장</small>';
+    var shown = S.positions.slice(0, 8);
+    var html = shown.map(function (p, i) {
+      return '<li><i>' + (i + 1) + '</i>' + esc((p || '').trim() || (i + 1) + '번째 카드') + '</li>';
+    }).join('');
+    if (S.count > 8) html += '<li class="more">외 ' + (S.count - 8) + '장</li>';
+    $('#posList').innerHTML = html;
+  }
+  function renderEditor() {
+    $('#cntInput').value = S.count;
+    var lim = Math.min(S.count, 12), html = '';
+    for (var i = 0; i < lim; i++) {
+      html += '<label class="pos-row"><span>' + (i + 1) + '</span><input class="input" type="text" data-i="' + i + '" maxlength="20" value="' + esc(S.positions[i] || '') + '" placeholder="' + (i + 1) + '번째 카드 의미" aria-label="' + (i + 1) + '번째 자리 이름"></label>';
+    }
+    $('#posInputs').innerHTML = html;
+    $('#posNote').hidden = S.count <= 12;
+  }
+  function applyPreset(cat) {
+    S.positions = PRESETS[cat].slice();
+    S.count = S.positions.length;
+    renderSpread(); renderEditor();
+  }
+  function setCount(n) {
+    n = Math.max(1, Math.min(DECK.length, n));
+    var pos = S.positions.slice(0, n);
+    while (pos.length < n) pos.push('');
+    S.positions = pos; S.count = n;
+    renderSpread(); renderEditor();
+  }
+  function validateSetup() {
+    var ok = $('#question').value.trim().length > 0;
+    $('#go').disabled = !ok;
+    $('#goHelp').textContent = ok ? '' : '질문을 입력하세요.';
+    return ok;
+  }
+  function startDraw() {
+    if (!validateSetup()) return;
+    S.question = $('#question').value.trim();
+    S.positions = S.positions.map(function (p, i) { return (p || '').trim() || (i + 1) + '번째 카드'; });
+    var ids = []; for (var i = 0; i < DECK.length; i++) ids.push(i);
+    S.rem = shuffleArr(ids);
+    S.picked = [];
+    done = false;
+    $('#qEcho').textContent = S.question;
+    buildDeck(); renderSlots();
+    show('pick');
+    layoutB(null, 0);
+    idleHow();
+  }
+
+  /* ---------- screen 2: pick (scrub, then pull up) ---------- */
+  var bzone = $('#bzone');
+  var elsB = {};
+  var done = false, shuffling = false;
+  var CW = 46, PULL = 56, LOCK_ON = 5, LOCK_OFF = 2;
+  var B = { active: -1 };
+
+  function buildDeck() {
+    bzone.innerHTML = ''; elsB = {};
+    S.rem.forEach(function (id) {
+      var b = document.createElement('div');
+      b.className = 'cardback bcard'; b.dataset.id = id;
+      bzone.appendChild(b); elsB[id] = b;
+    });
+  }
+  function renderSlots() {
+    var n = S.picked.length;
+    $('#tallyNow').textContent = n;
+    $('#tallyOf').textContent = '/ ' + S.count + '장';
+    var slots = $('#slots');
+    slots.className = 'slots' + (S.count > 10 ? ' many' : '');
+    var html = '';
+    for (var i = 0; i < S.count; i++) {
+      html += '<div class="slot' + (i < n ? ' filled' : '') + '"><div class="mini' + (i < n ? ' cardback' : '') + '">' + (i + 1) + '</div><div class="lbl">' + esc(S.positions[i]) + '</div></div>';
+    }
+    slots.innerHTML = html;
+  }
+  function idleHow() {
+    var el = $('#how');
+    if (done) { el.textContent = '모두 뽑았어요. 결과를 확인해 보세요.'; el.className = 'how state'; return; }
+    el.textContent = '손가락을 올려 좌우로 쓸어 고르고, 마음에 드는 카드를 위로 끌어올려 뽑으세요.';
+    el.className = 'how';
+  }
+  function setHow(text, state) { var el = $('#how'); el.textContent = text; el.className = 'how' + (state ? ' state' : ''); }
+
+  function layoutB(f, pull, wave) {
+    var n = S.rem.length, w = bzone.clientWidth;
+    if (!n || !w) return;
+    var left = 22, usable = w - 44, gap = usable / n, half = usable / 2;
+    var active = f === null ? -1 : Math.max(0, Math.min(n - 1, Math.round(f)));
+    B.active = active;
+    var ready = active >= 0 && pull >= PULL;
+    S.rem.forEach(function (id, i) {
+      var el = elsB[id]; if (!el) return;
+      var x = left + (i + 0.5) * gap;
+      var u = (x - left - half) / half;
+      var y = 150 + u * u * 26;
+      var rot = u * 12;
+      var lift = 0, sc = 1;
+      if (f !== null) {
+        var d = i - f, g = Math.exp(-(d * d) / (2 * 3.4 * 3.4));
+        lift = 52 * g; sc = 1 + 0.45 * g;
+      }
+      if (wave) lift += Math.max(0, Math.sin(wave * Math.PI * 3 - i * 0.22)) * 16 * Math.sin(Math.min(1, wave) * Math.PI);
+      var extra = i === active ? pull : 0;
+      el.style.transform = 'translate(' + (x - CW / 2).toFixed(1) + 'px,' + (y - lift - extra).toFixed(1) + 'px) rotate(' + rot.toFixed(1) + 'deg) scale(' + sc.toFixed(2) + ')';
+      el.style.zIndex = i === active ? 900 : 100 + Math.round(lift * 4);
+      el.classList.toggle('active', i === active);
+      el.classList.toggle('ready', i === active && ready);
+    });
+  }
+  function fFromX(x) {
+    var rect = bzone.getBoundingClientRect();
+    var n = S.rem.length, usable = rect.width - 44, gap = usable / n;
+    return (x - rect.left - 22) / gap - 0.5;
+  }
+  function commitPick(id) {
+    if (done) return;
+    S.picked.push({ id: id, reversed: Math.random() < 0.5 });
+    S.rem = S.rem.filter(function (x) { return x !== id; });
+    if (elsB[id]) { elsB[id].remove(); delete elsB[id]; }
+    done = S.picked.length >= S.count;
+    renderSlots();
+    layoutB(null, 0);
+    idleHow();
+    if (done) {
+      $('#pickActions').hidden = true;
+      $('#toResult').hidden = false;
+      bzone.style.opacity = 0.35;
+    }
+  }
+
+  var drag = null;
+  bzone.addEventListener('pointerdown', function (e) {
+    if (done || shuffling || !S.rem.length) return;
+    bzone.classList.add('live');
+    drag = { y0: e.clientY, lock: null, prev: -1 };
+    try { bzone.setPointerCapture(e.pointerId); } catch (err) {}
+    layoutB(fFromX(e.clientX), 0);
+    setHow('위로 끌어올리세요', true);
+  });
+  bzone.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    var up = drag.y0 - e.clientY;
+    var pull = Math.max(0, Math.min(110, up));
+    // Once the finger starts pulling up, keep the card chosen a moment ago; sideways drift no longer changes it.
+    // Lock to the card that was chosen just before the finger started rising, not the one after any sideways slip.
+    if (drag.lock === null && up >= LOCK_ON && B.active >= 0) drag.lock = drag.prev >= 0 ? drag.prev : B.active;
+    else if (drag.lock !== null && up <= LOCK_OFF) drag.lock = null;
+    if (drag.lock === null) drag.prev = B.active;
+    layoutB(drag.lock !== null ? drag.lock : fFromX(e.clientX), pull);
+    setHow(pull >= PULL ? '놓으면 이 카드를 뽑습니다' : '위로 끌어올리세요', true);
+  });
+  function endDrag(e) {
+    if (!drag) return;
+    var d = drag; drag = null;
+    bzone.classList.remove('live');
+    var n = S.rem.length;
+    var id = (B.active >= 0 && B.active < n) ? S.rem[B.active] : null;
+    var up = d.y0 - e.clientY;
+    var ok = id !== null && e.type !== 'pointercancel' && up >= PULL;
+    idleHow();
+    if (ok) commitPick(id); else layoutB(null, 0);
+  }
+  bzone.addEventListener('pointerup', endDrag);
+  bzone.addEventListener('pointercancel', endDrag);
+  window.addEventListener('resize', function () { if (S.screen === 'pick') layoutB(null, 0); });
+
+  function doShuffle() {
+    if (shuffling || done || !S.rem.length) return;
+    shuffling = true;
+    if (reduceMotion) { S.rem = shuffleArr(S.rem); layoutB(null, 0); shuffling = false; return; }
+    var t0 = performance.now(), dur = 900;
+    bzone.classList.add('live');
+    (function step(now) {
+      var p = Math.min(1, (now - t0) / dur);
+      layoutB(null, 0, p);
+      if (p < 1) requestAnimationFrame(step);
+      else { S.rem = shuffleArr(S.rem); bzone.classList.remove('live'); layoutB(null, 0); shuffling = false; }
+    })(t0);
+  }
+
+  /* ---------- screen 3: result ---------- */
+  function pickedCards() { return S.picked.map(function (p) { return { card: DECK[p.id], reversed: p.reversed }; }); }
+  function buildResult() {
+    var picked = pickedCards();
+    $('#rQuestion').textContent = S.question;
+    $('#rMeta').innerHTML =
+      '<span class="pill">' + esc(CATEGORY_NAMES[S.category]) + '</span>' +
+      '<span class="pill">' + S.count + '장 스프레드</span>';
+    $('#grid').innerHTML = picked.map(function (p, i) {
+      var c = p.card;
+      var kind = c.type === 'major' ? '메이저 아르카나' : c.suitKo + ' 수트';
+      return '<article class="rc" style="--d:' + Math.min(i * 0.12, 1).toFixed(2) + 's">' +
+        '<p class="pos">' + esc(S.positions[i]) + '</p>' +
+        '<div class="face' + (p.reversed ? ' rev' : '') + '">' + faceSVG(c) + '</div>' +
+        '<h3>' + esc(c.name) + '</h3>' +
+        '<p class="ko">' + esc(c.ko) + ' · ' + esc(kind) + '</p>' +
+        '<span class="tag' + (p.reversed ? ' rev' : '') + '">' + (p.reversed ? '역방향' : '정방향') + '</span>' +
+        '<p class="kw">' + esc(p.reversed ? c.kwRev : c.kwUp) + '</p>' +
+        '</article>';
+    }).join('');
+    $('#promptPreview').textContent = buildPrompt(S.question, S.category, S.count, S.positions, picked);
+    $('#manual').hidden = true;
+  }
+  function copyAll() {
+    var picked = pickedCards();
+    var text = buildAllText(S.question, S.positions, picked) +
+      '\n\n--- Gemini 심층 분석 프롬프트 ---\n\n' +
+      buildPrompt(S.question, S.category, S.count, S.positions, picked);
+    copyText(text).then(function (ok) {
+      if (ok) toast('결과와 Gemini 프롬프트를 복사했어요.');
+      else { toast('복사가 막혀 있어요. 아래 내용을 직접 복사하세요.'); showManual(text); }
+    });
+  }
+  function copyForGemini() {
+    var prompt = buildPrompt(S.question, S.category, S.count, S.positions, pickedCards());
+    copyText(prompt).then(function (ok) {
+      if (ok) toast('프롬프트를 복사했어요. Gemini 입력창에 붙여넣으세요.');
+      else { toast('복사가 막혀 있어요. 아래 내용을 직접 복사하세요.'); showManual(prompt); }
+    });
+  }
+  function newReading() {
+    S.question = ''; S.picked = []; S.rem = []; done = false;
+    $('#question').value = '';
+    bzone.style.opacity = 1;
+    $('#pickActions').hidden = false;
+    $('#toResult').hidden = true;
+    applyPreset(S.category);
+    validateSetup();
+    show('setup');
+  }
+
+  /* ---------- wiring ---------- */
+  // iOS keeps the keyboard open when an empty area is tapped, so close it by hand.
+  document.addEventListener('pointerdown', function (e) {
+    var a = document.activeElement;
+    if (!a || (a.tagName !== 'TEXTAREA' && a.tagName !== 'INPUT')) return;
+    var t = e.target;
+    if (t && t.closest && t.closest('textarea, input, button, a, label')) return;
+    a.blur();
+  });
+
+  // "완료" bar that rides on top of the on-screen keyboard.
+  var kb = $('#kbbar');
+  function placeKb() {
+    var vv = window.visualViewport;
+    if (!vv) { kb.style.bottom = '0px'; return; }
+    kb.style.bottom = Math.max(0, window.innerHeight - vv.height - vv.offsetTop) + 'px';
+  }
+  function kbCheck() {
+    var a = document.activeElement;
+    kb.hidden = !(a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT') && !a.readOnly);
+    if (!kb.hidden) placeKb();
+  }
+  document.addEventListener('focusin', kbCheck);
+  document.addEventListener('focusout', function () { setTimeout(kbCheck, 0); });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', placeKb);
+    window.visualViewport.addEventListener('scroll', placeKb);
+  }
+  $('#kbDone').addEventListener('click', function () {
+    var a = document.activeElement;
+    var onSetup = S.screen === 'setup';
+    if (a && a.blur) a.blur();
+    kbCheck();
+    if (onSetup) {
+      // wait for the keyboard to retract, then bring the "카드 뽑기" button into view
+      setTimeout(function () {
+        $('#go').scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+      }, 300);
+    }
+  });
+
+  function init() {
+    renderCats(); renderSpread(); renderEditor(); validateSetup();
+
+    $('#cats').addEventListener('click', function (e) {
+      var b = e.target.closest('.cat'); if (!b) return;
+      S.category = b.dataset.k;
+      applyPreset(S.category);
+      renderCats();
+    });
+    $('#spreadEdit').addEventListener('click', function () {
+      var ed = $('#editor');
+      ed.hidden = !ed.hidden;
+      $('#spreadEdit').setAttribute('aria-expanded', String(!ed.hidden));
+      $('#spreadEdit').textContent = ed.hidden ? '변경' : '접기';
+    });
+    $('#editorClose').addEventListener('click', function () {
+      $('#editor').hidden = true;
+      $('#spreadEdit').setAttribute('aria-expanded', 'false');
+      $('#spreadEdit').textContent = '변경';
+    });
+    $('#presetReset').addEventListener('click', function () { applyPreset(S.category); });
+    $('#cntDec').addEventListener('click', function () { setCount(S.count - 1); });
+    $('#cntInc').addEventListener('click', function () { setCount(S.count + 1); });
+    $('#cntInput').addEventListener('input', function (e) {
+      var v = Number(e.target.value);
+      if (e.target.value !== '' && Number.isInteger(v) && v >= 1 && v <= DECK.length && v !== S.count) {
+        var pos = S.positions.slice(0, v);
+        while (pos.length < v) pos.push('');
+        S.positions = pos; S.count = v;
+        renderSpread();
+        // rebuild only the name inputs so the count field keeps focus
+        var lim = Math.min(v, 12), html = '';
+        for (var i = 0; i < lim; i++) {
+          html += '<label class="pos-row"><span>' + (i + 1) + '</span><input class="input" type="text" data-i="' + i + '" maxlength="20" value="' + esc(S.positions[i] || '') + '" placeholder="' + (i + 1) + '번째 카드 의미" aria-label="' + (i + 1) + '번째 자리 이름"></label>';
+        }
+        $('#posInputs').innerHTML = html;
+        $('#posNote').hidden = v <= 12;
+      }
+    });
+    $('#posInputs').addEventListener('input', function (e) {
+      var i = e.target.dataset.i;
+      if (i !== undefined) { S.positions[Number(i)] = e.target.value; renderSpread(); }
+    });
+    $('#question').addEventListener('input', validateSetup);
+    $('#go').addEventListener('click', startDraw);
+
+    $('#pickBack').addEventListener('click', function () { show('setup'); });
+    $('#shuffle').addEventListener('click', doShuffle);
+    $('#randomPick').addEventListener('click', function () {
+      if (done || !S.rem.length) return;
+      commitPick(S.rem[Math.floor(Math.random() * S.rem.length)]);
+    });
+    $('#toResult').addEventListener('click', function () { buildResult(); show('result'); });
+
+    $('#copyAll').addEventListener('click', copyAll);
+    $('#gemini').addEventListener('click', copyForGemini);
+    $('#again').addEventListener('click', newReading);
+
+    show('setup');
+  }
+  init();
+})();
+</script>
+
+</body>
+</html>
