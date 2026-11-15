@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="타로">
-<meta name="description" content="질문을 적고 카드를 뽑으면 Gemini에 보낼 해석 프롬프트까지 만들어 주는 타로 뽑기">
+<meta name="description" content="질문을 적고 카드를 뽑으면 Gemini나 ChatGPT에 보낼 해석 프롬프트까지 만들어 주는 타로 뽑기">
 <title>Tarot Draw</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -68,7 +68,7 @@ button, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-.top { margin-bottom: 30px; }
+.top { margin-bottom: 30px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .brand { font: 600 1.15rem/1 var(--serif-ko); letter-spacing: 0.02em; margin: 0; }
 .brand small { font: 500 0.95rem/1 var(--serif-en); color: var(--muted); margin-left: 0.6rem; letter-spacing: 0.06em; }
 
@@ -145,6 +145,56 @@ h1:focus { outline: none; }
 }
 .editor-actions { display: flex; justify-content: space-between; }
 .note { margin: 0; color: var(--muted); font-size: 0.85rem; }
+.pos-row .input { flex: 1; min-width: 0; }
+.pos-row .kill {
+  flex: none; width: 42px; height: 42px; border-radius: 10px;
+  border: 1px solid var(--line); background: transparent; color: var(--muted);
+  font-size: 1.15rem; line-height: 1;
+}
+.pos-row .kill:hover:not(:disabled) { border-color: var(--reverse); color: var(--reverse); }
+.pos-row .kill:disabled { opacity: 0.25; cursor: not-allowed; }
+.addpos {
+  justify-self: start; min-height: 42px; padding: 0 16px; border-radius: 10px;
+  border: 1px dashed var(--line-strong); background: transparent; color: var(--muted); font-size: 0.9rem;
+}
+.addpos:hover:not(:disabled) { border-color: var(--accent); color: var(--ink); }
+.addpos:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* header menu */
+.menuwrap { position: relative; }
+.menubtn {
+  width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line);
+  background: transparent; display: grid; place-content: center; gap: 5px;
+}
+.menubtn span { display: block; width: 18px; height: 1.5px; background: var(--ink); border-radius: 2px; }
+.menubtn[aria-expanded="true"] { border-color: var(--accent); }
+.menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; min-width: 152px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 6px;
+  box-shadow: var(--shadow); display: grid;
+}
+.menu button {
+  text-align: left; background: none; border: 0; border-radius: 8px;
+  min-height: 44px; padding: 0 12px; color: var(--muted); font-size: 0.95rem;
+}
+.menu button:hover { background: var(--sunken); color: var(--ink); }
+.menu button[aria-current="page"] { color: var(--accent); font-weight: 700; }
+
+/* guide / feedback */
+.page-body { max-width: 34rem; }
+.page-body > p { color: var(--muted); font-size: 0.93rem; margin: 0 0 24px; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 20px; }
+.steps li { display: grid; grid-template-columns: 26px 1fr; gap: 12px; align-items: start; }
+.steps i {
+  font: 600 0.85rem/1 var(--serif-en); font-style: normal; width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--accent-wash); color: var(--accent); margin-top: 2px;
+}
+.steps h3, .tips h3 { margin: 0 0 4px; font: 500 1rem/1.45 var(--sans); color: var(--ink); }
+.steps p, .tips p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.sub { margin: 38px 0 16px; font: 600 1.15rem/1.3 var(--serif-ko); }
+.tips { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+.tips li { padding-left: 14px; border-left: 2px solid var(--line-strong); }
+.backhome { margin-top: 38px; }
 
 textarea { min-height: 140px; padding: 14px 16px; line-height: 1.7; resize: vertical; background: var(--surface); border-color: var(--line); border-radius: 12px; }
 textarea::placeholder, .input::placeholder { color: var(--faint); }
@@ -232,11 +282,11 @@ details.prompt pre {
 .manual textarea { min-height: 150px; font-size: 0.85rem; }
 .actionbar {
   position: sticky; bottom: 0; z-index: 20; margin-top: 18px;
-  display: grid; grid-template-columns: 1fr 1.5fr; gap: 10px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
   padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px));
   background: var(--bg); border-top: 1px solid var(--line);
 }
-.actionbar .btn { min-height: 52px; padding: 0 12px; font-size: 0.95rem; }
+.actionbar .btn { min-height: 52px; padding: 0 6px; font-size: 0.86rem; }
 .again { display: block; margin: 0 auto; }
 
 .kbbar {
@@ -278,7 +328,17 @@ body { margin: 0; }
 </head>
 <body>
 <div class="app" id="app">
-  <header class="top"><p class="brand">타로<small>Tarot Draw</small></p></header>
+  <header class="top">
+    <p class="brand">타로<small>Tarot Draw</small></p>
+    <div class="menuwrap">
+      <button type="button" class="menubtn" id="menuBtn" aria-expanded="false" aria-controls="menu" aria-label="메뉴 열기"><span></span><span></span><span></span></button>
+      <nav class="menu" id="menu" hidden>
+        <button type="button" data-go="setup">홈</button>
+        <button type="button" data-go="guide">사용 방법</button>
+        <button type="button" data-go="feedback">피드백</button>
+      </nav>
+    </div>
+  </header>
 
   <!-- 1. 입력 -->
   <section id="s-setup" class="screen" aria-labelledby="h-setup">
@@ -297,14 +357,9 @@ body { margin: 0; }
       <p class="spread-sum" id="spreadSum"></p>
       <ol class="poslist" id="posList"></ol>
       <div class="editor" id="editor" hidden>
-        <div class="stepper">
-          <button type="button" class="circle" id="cntDec" aria-label="한 장 줄이기">−</button>
-          <input id="cntInput" type="number" inputmode="numeric" min="1" max="78" step="1" aria-label="카드 장수">
-          <span>장</span>
-          <button type="button" class="circle" id="cntInc" aria-label="한 장 늘리기">+</button>
-        </div>
+        <p class="note">빼고 싶은 자리는 ×를 누르세요. 자리 이름은 해석 프롬프트에 그대로 쓰여요.</p>
         <div class="pos-rows" id="posInputs"></div>
-        <p class="note" id="posNote" hidden>13번째부터는 "13번째 카드"처럼 순서대로 이름이 붙어요.</p>
+        <button type="button" class="addpos" id="addPos">+ 자리 추가</button>
         <div class="editor-actions">
           <button type="button" class="link" id="presetReset">분야 기본값으로</button>
           <button type="button" class="link" id="editorClose">닫기</button>
@@ -352,14 +407,64 @@ body { margin: 0; }
     </div>
     <div class="grid" id="grid"></div>
     <details class="prompt">
-      <summary>Gemini에 보낼 프롬프트 보기</summary>
+      <summary>AI에게 보낼 프롬프트 보기</summary>
       <pre id="promptPreview"></pre>
     </details>
     <button type="button" class="link again" id="again">새로운 타로 보기</button>
     <p class="disclaimer">타로는 재미와 참고용이에요. 중요한 결정은 스스로 신중하게 판단해 주세요.</p>
     <div class="actionbar">
-      <button type="button" class="btn" id="copyAll">전체 결과 복사</button>
-      <a class="btn primary" id="gemini" href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer">Gemini로 해석 받기</a>
+      <button type="button" class="btn" id="copyAll">결과 복사</button>
+      <a class="btn primary" id="gemini" href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer">Gemini</a>
+      <a class="btn primary" id="gpt" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a>
+    </div>
+  </section>
+
+  <!-- 4. 사용 방법 -->
+  <section id="s-guide" class="screen" aria-labelledby="h-guide" hidden>
+    <h1 id="h-guide" tabindex="-1">사용 방법</h1>
+    <div class="page-body">
+      <p>질문을 적고 카드를 뽑으면, 그 결과를 AI에게 물어볼 수 있는 해석 프롬프트가 만들어집니다. 네 단계면 끝나요.</p>
+      <ol class="steps">
+        <li><i>1</i><div>
+          <h3>상담 분야를 고르세요</h3>
+          <p>고른 분야에 맞춰 뽑을 카드 수와 각 자리의 의미가 자동으로 정해집니다. 연애와 인간관계는 5장, 금전·사업·학업은 3장입니다. 바꾸고 싶으면 스프레드 옆 변경을 눌러 자리를 빼거나 더하고, 이름도 직접 쓸 수 있어요.</p>
+        </div></li>
+        <li><i>2</i><div>
+          <h3>질문을 구체적으로 적으세요</h3>
+          <p>해석의 정확도는 질문에서 갈립니다. 언제부터인지, 누구와의 일인지, 지금 무엇이 걸리는지를 두세 문장으로 적어 주세요. 적은 내용은 그대로 프롬프트에 들어가 해석의 바탕이 됩니다.</p>
+        </div></li>
+        <li><i>3</i><div>
+          <h3>카드를 뽑으세요</h3>
+          <p>화면 아래 덱에 손가락을 올리고 좌우로 쓸면 카드가 하나씩 떠오릅니다. 마음에 드는 카드에서 멈춰 위로 끌어올리면 뽑힙니다. 올리기 시작하면 카드가 고정되니 손이 조금 흔들려도 괜찮아요. 뽑기 전에 카드 섞기를 눌러도 됩니다.</p>
+        </div></li>
+        <li><i>4</i><div>
+          <h3>해석을 받으세요</h3>
+          <p>결과 화면에서 Gemini나 ChatGPT를 누르면 프롬프트가 복사되고 해당 사이트가 열립니다. 입력창에 붙여넣기만 하면 됩니다. 결과 복사는 뽑은 카드 목록과 프롬프트를 함께 복사해, 메모에 남기거나 다른 AI에 쓰기 좋아요.</p>
+        </div></li>
+      </ol>
+
+      <h2 class="sub">더 정확하게 뽑으려면</h2>
+      <ul class="tips">
+        <li><h3>한 번에 하나만 묻기</h3><p>두 가지를 한꺼번에 물으면 어느 쪽 답인지 흐려집니다. 궁금한 게 여럿이면 나눠서 뽑으세요.</p></li>
+        <li><h3>"될까요?"보다 "어떻게 하면 좋을까요?"</h3><p>예·아니오로 끝나는 질문보다 흐름과 방향을 묻는 질문에서 더 쓸모 있는 해석이 나옵니다.</p></li>
+        <li><h3>상황을 먼저 적기</h3><p>바라는 답을 적는 대신 지금 벌어진 일을 적어 주세요. 사실이 많을수록 해석이 구체적입니다.</p></li>
+        <li><h3>같은 질문을 반복하지 않기</h3><p>원하는 답이 나올 때까지 다시 뽑으면 어떤 결과도 의미를 잃습니다. 한 질문은 하루 한 번으로 충분해요.</p></li>
+        <li><h3>뽑기 전에 잠깐 멈추기</h3><p>질문을 마음속으로 한 번 떠올린 뒤 덱을 쓸어 보세요. 고르는 속도보다 그 한 박자가 중요합니다.</p></li>
+      </ul>
+
+      <button type="button" class="btn block backhome" data-go="setup">카드 뽑으러 가기</button>
+      <p class="disclaimer">타로는 재미와 참고용이에요. 중요한 결정은 스스로 신중하게 판단해 주세요.</p>
+    </div>
+  </section>
+
+  <!-- 5. 피드백 -->
+  <section id="s-feedback" class="screen" aria-labelledby="h-feedback" hidden>
+    <h1 id="h-feedback" tabindex="-1">피드백</h1>
+    <div class="page-body">
+      <p>쓰면서 불편했던 점, 해석이 얼마나 맞았는지, 있었으면 하는 기능을 알려 주세요. 보내 주신 의견은 다음 업데이트에 반영합니다.</p>
+      <button type="button" class="btn primary block" id="fbBtn">의견 남기기</button>
+      <p class="help" id="fbHelp" aria-live="polite">의견을 받는 창구를 준비하고 있어요.</p>
+      <button type="button" class="btn block backhome" data-go="setup">카드 뽑으러 가기</button>
     </div>
   </section>
 </div>
@@ -647,10 +752,15 @@ body { margin: 0; }
   }
 
   /* ---------- navigation ---------- */
+  var SCREENS = ['setup', 'pick', 'result', 'guide', 'feedback'];
   function show(name) {
     S.screen = name;
-    ['setup', 'pick', 'result'].forEach(function (n) { $('#s-' + n).hidden = n !== name; });
+    SCREENS.forEach(function (n) { $('#s-' + n).hidden = n !== name; });
     $('#app').classList.toggle('wide', name === 'result');
+    Array.prototype.forEach.call(document.querySelectorAll('#menu button'), function (b) {
+      if (b.dataset.go === name) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
     window.scrollTo(0, 0);
     var h = $('#s-' + name + ' h1');
     if (h) h.focus({ preventScroll: true });
@@ -672,26 +782,35 @@ body { margin: 0; }
     if (S.count > 8) html += '<li class="more">외 ' + (S.count - 8) + '장</li>';
     $('#posList').innerHTML = html;
   }
+  var MAXPOS = 12;
   function renderEditor() {
-    $('#cntInput').value = S.count;
-    var lim = Math.min(S.count, 12), html = '';
-    for (var i = 0; i < lim; i++) {
-      html += '<label class="pos-row"><span>' + (i + 1) + '</span><input class="input" type="text" data-i="' + i + '" maxlength="20" value="' + esc(S.positions[i] || '') + '" placeholder="' + (i + 1) + '번째 카드 의미" aria-label="' + (i + 1) + '번째 자리 이름"></label>';
+    var n = S.positions.length, html = '';
+    for (var i = 0; i < n; i++) {
+      html += '<div class="pos-row"><span>' + (i + 1) + '</span>' +
+        '<input class="input" type="text" data-i="' + i + '" maxlength="20" value="' + esc(S.positions[i] || '') + '" placeholder="' + (i + 1) + '번째 카드 의미" aria-label="' + (i + 1) + '번째 자리 이름">' +
+        '<button type="button" class="kill" data-del="' + i + '" aria-label="' + (i + 1) + '번째 자리 빼기"' + (n <= 1 ? ' disabled' : '') + '>&times;</button></div>';
     }
     $('#posInputs').innerHTML = html;
-    $('#posNote').hidden = S.count <= 12;
+    $('#addPos').disabled = n >= MAXPOS;
   }
-  function applyPreset(cat) {
-    S.positions = PRESETS[cat].slice();
+  // The count always follows the list of positions, so removing a row removes that very position.
+  function syncSpread() {
     S.count = S.positions.length;
     renderSpread(); renderEditor();
   }
-  function setCount(n) {
-    n = Math.max(1, Math.min(DECK.length, n));
-    var pos = S.positions.slice(0, n);
-    while (pos.length < n) pos.push('');
-    S.positions = pos; S.count = n;
-    renderSpread(); renderEditor();
+  function applyPreset(cat) {
+    S.positions = PRESETS[cat].slice();
+    syncSpread();
+  }
+  function addPos() {
+    if (S.positions.length >= MAXPOS) return;
+    S.positions.push('');
+    syncSpread();
+  }
+  function removePos(i) {
+    if (S.positions.length <= 1 || i < 0 || i >= S.positions.length) return;
+    S.positions.splice(i, 1);
+    syncSpread();
   }
   function validateSetup() {
     var ok = $('#question').value.trim().length > 0;
@@ -872,17 +991,17 @@ body { margin: 0; }
   function copyAll() {
     var picked = pickedCards();
     var text = buildAllText(S.question, S.positions, picked) +
-      '\n\n--- Gemini 심층 분석 프롬프트 ---\n\n' +
+      '\n\n--- AI 심층 분석 프롬프트 ---\n\n' +
       buildPrompt(S.question, S.category, S.count, S.positions, picked);
     copyText(text).then(function (ok) {
-      if (ok) toast('결과와 Gemini 프롬프트를 복사했어요.');
+      if (ok) toast('결과와 해석 프롬프트를 복사했어요.');
       else { toast('복사가 막혀 있어요. 아래 내용을 직접 복사하세요.'); showManual(text); }
     });
   }
-  function copyForGemini() {
+  function copyForAI(service) {
     var prompt = buildPrompt(S.question, S.category, S.count, S.positions, pickedCards());
     copyText(prompt).then(function (ok) {
-      if (ok) toast('프롬프트를 복사했어요. Gemini 입력창에 붙여넣으세요.');
+      if (ok) toast('프롬프트를 복사했어요. ' + service + ' 입력창에 붙여넣으세요.');
       else { toast('복사가 막혀 있어요. 아래 내용을 직접 복사하세요.'); showManual(prompt); }
     });
   }
@@ -959,23 +1078,10 @@ body { margin: 0; }
       $('#spreadEdit').textContent = '변경';
     });
     $('#presetReset').addEventListener('click', function () { applyPreset(S.category); });
-    $('#cntDec').addEventListener('click', function () { setCount(S.count - 1); });
-    $('#cntInc').addEventListener('click', function () { setCount(S.count + 1); });
-    $('#cntInput').addEventListener('input', function (e) {
-      var v = Number(e.target.value);
-      if (e.target.value !== '' && Number.isInteger(v) && v >= 1 && v <= DECK.length && v !== S.count) {
-        var pos = S.positions.slice(0, v);
-        while (pos.length < v) pos.push('');
-        S.positions = pos; S.count = v;
-        renderSpread();
-        // rebuild only the name inputs so the count field keeps focus
-        var lim = Math.min(v, 12), html = '';
-        for (var i = 0; i < lim; i++) {
-          html += '<label class="pos-row"><span>' + (i + 1) + '</span><input class="input" type="text" data-i="' + i + '" maxlength="20" value="' + esc(S.positions[i] || '') + '" placeholder="' + (i + 1) + '번째 카드 의미" aria-label="' + (i + 1) + '번째 자리 이름"></label>';
-        }
-        $('#posInputs').innerHTML = html;
-        $('#posNote').hidden = v <= 12;
-      }
+    $('#addPos').addEventListener('click', addPos);
+    $('#posInputs').addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-del]');
+      if (b) removePos(Number(b.dataset.del));
     });
     $('#posInputs').addEventListener('input', function (e) {
       var i = e.target.dataset.i;
@@ -993,8 +1099,29 @@ body { margin: 0; }
     $('#toResult').addEventListener('click', function () { buildResult(); show('result'); });
 
     $('#copyAll').addEventListener('click', copyAll);
-    $('#gemini').addEventListener('click', copyForGemini);
+    $('#gemini').addEventListener('click', function () { copyForAI('Gemini'); });
+    $('#gpt').addEventListener('click', function () { copyForAI('ChatGPT'); });
     $('#again').addEventListener('click', newReading);
+
+    // header menu
+    var menu = $('#menu'), menuBtn = $('#menuBtn');
+    function setMenu(open) {
+      menu.hidden = !open;
+      menuBtn.setAttribute('aria-expanded', String(open));
+      menuBtn.setAttribute('aria-label', open ? '메뉴 닫기' : '메뉴 열기');
+    }
+    menuBtn.addEventListener('click', function (e) { e.stopPropagation(); setMenu(menu.hidden); });
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('button[data-go]') : null;
+      if (b) { setMenu(false); show(b.dataset.go); return; }
+      if (!menu.hidden && !(e.target.closest && e.target.closest('.menuwrap'))) setMenu(false);
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setMenu(false); });
+
+    $('#fbBtn').addEventListener('click', function () {
+      toast('서비스 준비중입니다.');
+      $('#fbHelp').textContent = '서비스 준비중입니다. 곧 열어 둘게요.';
+    });
 
     show('setup');
   }
