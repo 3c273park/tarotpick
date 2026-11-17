@@ -247,7 +247,7 @@ textarea:focus, .input:focus { border-color: var(--accent); outline: 2px solid v
 .bcard {
   position: absolute; top: 0; left: 0; width: 46px; height: 69px; border-radius: 6px;
   transform-origin: 50% 100%; will-change: transform;
-  transition: transform .28s cubic-bezier(.2, .8, .2, 1);
+  transition: transform .28s cubic-bezier(.2, .8, .2, 1), opacity .3s ease-out;
 }
 .bzone.live .bcard { transition: none; }
 .bcard.active { box-shadow: inset 0 0 0 1.5px var(--accent), 0 8px 22px rgba(124, 200, 180, 0.35); }
@@ -322,7 +322,15 @@ details.prompt pre {
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 [hidden] { display: none !important; }
 html { background: #130F1C; }
-body { margin: 0; }
+/* Standalone (home-screen) mode draws under the status bar, so keep the header clear of it. */
+body {
+  margin: 0;
+  padding-top: calc(22px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+}
+@media (display-mode: standalone) {
+  body { padding-top: calc(22px + max(20px, env(safe-area-inset-top, 0px))); }
+}
 </style>
 
 </head>
@@ -965,6 +973,27 @@ body { margin: 0; }
     })(t0);
   }
 
+  // "한 장 바로 뽑기": spotlight a card, draw it up out of the deck, then take it.
+  function autoPick() {
+    if (done || shuffling || drag || !S.rem.length) return;
+    var idx = Math.floor(Math.random() * S.rem.length);
+    var id = S.rem[idx];
+    if (reduceMotion) { commitPick(id); return; }
+    shuffling = true;
+    setHow('카드를 뽑는 중…', true);
+    layoutB(idx, 0);
+    setTimeout(function () {
+      var el = elsB[id];
+      if (el) el.style.opacity = '0';
+      layoutB(idx, 150);
+    }, 320);
+    setTimeout(function () {
+      shuffling = false;
+      if (S.screen !== 'pick' || !elsB[id]) { layoutB(null, 0); return; }
+      commitPick(id);
+    }, 660);
+  }
+
   /* ---------- screen 3: result ---------- */
   function pickedCards() { return S.picked.map(function (p) { return { card: DECK[p.id], reversed: p.reversed }; }); }
   function buildResult() {
@@ -1092,10 +1121,7 @@ body { margin: 0; }
 
     $('#pickBack').addEventListener('click', function () { show('setup'); });
     $('#shuffle').addEventListener('click', doShuffle);
-    $('#randomPick').addEventListener('click', function () {
-      if (done || !S.rem.length) return;
-      commitPick(S.rem[Math.floor(Math.random() * S.rem.length)]);
-    });
+    $('#randomPick').addEventListener('click', autoPick);
     $('#toResult').addEventListener('click', function () { buildResult(); show('result'); });
 
     $('#copyAll').addEventListener('click', copyAll);
